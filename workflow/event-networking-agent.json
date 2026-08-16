@@ -1,0 +1,210 @@
+{
+  "name": "Event Networking Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 12 }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.eventbriteapi.com/v3/events/search/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "q", "value": "networking tech startup emprendimiento" },
+            { "name": "location.address", "value": "Buenos Aires, Argentina" },
+            { "name": "location.within", "value": "50km" },
+            { "name": "expand", "value": "venue" },
+            { "name": "sort_by", "value": "date" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer YOUR_EVENTBRITE_TOKEN" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Eventbrite - Buscar Eventos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.meetup.com/find/upcoming_events",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "lat", "value": "-34.6037" },
+            { "name": "lon", "value": "-58.3816" },
+            { "name": "radius", "value": "50" },
+            { "name": "text", "value": "tech networking startup" },
+            { "name": "page", "value": "20" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Meetup - Buscar Eventos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "mode": "multiplex",
+        "mergeByFields": {
+          "values": [
+            { "field1": "name", "field2": "name" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Merge + Deduplicar",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "networking",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "tech",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "startup",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "pyme",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "emprendimiento",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Filtrar Relevantes",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "titulo", "value": "={{ $json.name }}", "type": "string" },
+            { "name": "fecha", "value": "={{ $json.start?.local || $json.local_date || 'Ver link' }}", "type": "string" },
+            { "name": "fuente", "value": "={{ $json.resource_uri ? 'Eventbrite' : 'Meetup' }}", "type": "string" },
+            { "name": "descripcion", "value": "={{ ($json.description?.text || $json.plain_text_description || '').substring(0, 200) }}", "type": "string" },
+            { "name": "url", "value": "={{ $json.url || $json.link }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Formatear",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_DISCORD_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"**Eventos-Networking** 🎯\\n\\n**Nuevo evento:** {{ $json.titulo }}\\n**Fecha:** {{ $json.fecha }}\\n**Fuente:** {{ $json.fuente }}\\n**Descripción:** {{ $json.descripcion }}\\n**Link:** {{ $json.url }}\"\n}",
+        "options": {}
+      },
+      "name": "Discord - Notificar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 200],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "tu@email.com",
+        "subject": "=Eventos Networking — {{ $json.titulo }}",
+        "message": "=<h3>{{ $json.titulo }}</h3><p><strong>Fecha:</strong> {{ $json.fecha }}</p><p><strong>Fuente:</strong> {{ $json.fuente }}</p><p>{{ $json.descripcion }}</p><p><a href=\"{{ $json.url }}\">Ver evento</a></p>",
+        "options": {}
+      },
+      "name": "Email - Notificar",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1350, 400],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          { "node": "Eventbrite - Buscar Eventos", "type": "main", "index": 0 },
+          { "node": "Meetup - Buscar Eventos", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Eventbrite - Buscar Eventos": {
+      "main": [
+        [{ "node": "Merge + Deduplicar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Meetup - Buscar Eventos": {
+      "main": [
+        [{ "node": "Merge + Deduplicar", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge + Deduplicar": {
+      "main": [
+        [{ "node": "Filtrar Relevantes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filtrar Relevantes": {
+      "main": [
+        [{ "node": "Formatear", "type": "main", "index": 0 }]
+      ]
+    },
+    "Formatear": {
+      "main": [
+        [
+          { "node": "Discord - Notificar", "type": "main", "index": 0 },
+          { "node": "Email - Notificar", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
