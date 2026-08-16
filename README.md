@@ -2,7 +2,7 @@
 
 Agente de IA que monitorea automáticamente eventos de networking, tecnología, emprendimiento y negocios en Argentina. Recibe notificaciones diarias en Discord, Slack o email con los próximos eventos relevantes para tu industria.
 
-![Event Networking Agent](https://res.cloudinary.com/dgzi8i2ji/image/upload/q_auto,f_auto/aplicar_buen_seo.webp)
+![Event Networking Agent](https://www.wemakeitlab.com/images/claude-code-resource.webp)
 
 ## Qué hace
 
